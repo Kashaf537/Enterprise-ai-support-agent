@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1
+
+# --- Base image ---
+# slim, not alpine: sentence-transformers/torch wheels are built against
+# glibc and either fail to install or fall back to slow source builds on
+# musl-based alpine images. slim keeps the image small while staying
+# glibc-compatible.
+FROM python:3.11-slim AS base
+
+# Prevents Python from buffering stdout/stderr, so `docker logs` shows
+# loguru/uvicorn output immediately instead of waiting for a flush.
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# System packages needed to build a couple of Python wheels (e.g. some
+# tokenizer/transformer dependencies still compile native extensions on
+# certain platforms). Removed in the same layer to keep image size down.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only the requirements file first so Docker's layer cache can skip
+# the (slow) pip install step on rebuilds where only application code
+# changed, not dependencies.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Now copy the actual application code.
+COPY backend/ ./backend/
+COPY knowledge_base/ ./knowledge_base/
+
+# Pre-download the embedding model at build time, not at container start.
+# This means the first real request after `docker run` doesn't pay a
+# multi-second cold-start cost waiting on a Hugging Face download, and the
+# container can run with no internet access at all afterward.
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

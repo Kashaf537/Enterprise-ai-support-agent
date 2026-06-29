@@ -1,0 +1,33 @@
+# ===== LLM & Agent Frameworks =====
+langchain==0.3.7
+langchain-groq==0.2.1
+langchain-community==0.3.7
+langgraph==0.2.53
+groq==0.13.1
+
+# ===== RAG =====
+chromadb==0.5.23
+sentence-transformers==3.3.1
+
+# ===== Backend =====
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.2
+pydantic-settings==2.6.1
+
+# ===== Frontend =====
+streamlit==1.40.2
+pandas==2.2.3
+plotly==5.24.1
+
+# ===== Database =====
+sqlalchemy==2.0.35
+
+# ===== Config & Utils =====
+python-dotenv==1.0.1
+loguru==0.7.2
+requests==2.32.3
+
+# ===== Dev / Testing =====
+pytest==8.3.4
+httpx==0.28.1

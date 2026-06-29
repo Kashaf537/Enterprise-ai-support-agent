@@ -1,0 +1,49 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Override file-based paths to point at the mounted volume below,
+      # so the SQLite DB and ChromaDB index persist across `docker compose
+      # down`/`up` cycles instead of living inside the ephemeral container
+      # filesystem.
+      - DATABASE_URL=sqlite:////app/data/support_agent.db
+      - CHROMA_PERSIST_DIR=/app/data/chroma_store
+    volumes:
+      - agent_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "8501:8501"
+    environment:
+      # Inside the Docker network, services reach each other by service
+      # name (here, "backend") rather than localhost — Compose sets up DNS
+      # for this automatically. The frontend's api_client.py reads this
+      # instead of hardcoding localhost so the same image works both
+      # locally (via .env override) and in Compose.
+      - BACKEND_API_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  # Named volume (not a bind mount) so data persists across container
+  # recreation without depending on a specific host directory layout —
+  # portable across machines and CI runners.
+  agent_data:
