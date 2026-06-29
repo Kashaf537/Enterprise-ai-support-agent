@@ -114,7 +114,6 @@ rationale. In short:
 
 ```
 User message
-    |
     v
 Streamlit frontend --HTTP--> FastAPI backend --> LangGraph workflow
                                                        |
